@@ -1,5 +1,6 @@
 package com.example.galagaattempt;
 
+import android.content.Context;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -9,37 +10,60 @@ import android.graphics.Paint;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.view.View;
 
-public class mapDraw extends Drawable {
-    
+import java.util.ArrayList;
+
+public class mapDraw extends View {
+
+    private final double MAPREGION = 2/5.0;
+    // % of height per 1/3 second
+    private final double bulletVelocity = .005;
+
     private final Paint paint1;
     private final Paint paint2;
+    private final Paint paint3;
     private int[][] map;
-    private Canvas canvas;
+    private ArrayList<bullets> bulletList;
+    private boolean collision;
+    private int collisionLine;
+    private int bulletIndex;
 
-    public mapDraw (int[][] mapDraw) {
+    public mapDraw (Context context, AttributeSet attrs) {
+        super(context, attrs);
 
         paint1= new Paint();
-        paint1.setStyle(Paint.Style.STROKE);
-        paint1.setARGB(255, 255, 255, 255);
+        //paint1.setStyle(Paint.Style.STROKE);
+        paint1.setARGB(255, 100, 220, 190);
         paint2= new Paint();
-        paint2.setStyle(Paint.Style.STROKE);
-        paint2.setARGB(255, 0, 0, 0);
+        ///paint2.setStyle(Paint.Style.STROKE);
+        paint2.setARGB(255, 100, 220, 220);
+        paint3= new Paint();
+        paint3.setStyle(Paint.Style.STROKE);
+        paint3.setARGB(255, 255, 255, 255);
+
+        bulletList = new ArrayList<bullets>();
+        map = new int[0][0];
+
     }
 
-    public void addBox(int x, int y) {
-        box(x,y,paint1);
+    public void addBullet(bullets bulletAdded) {
+        bulletList.add(bulletAdded);
     }
 
-    public void removeBox(int x, int y) {
-        box(x,y, paint2);
+    public void updateLists(int[][] mapDraw) {
+        //Log.d("DEBUG","map: "+mapDraw);
+        map = mapDraw;
     }
 
     //"box"
     //draws a box at the position in the map
-    private void box(int x, int y, Paint paint) {
-        int width = getBounds().width();
-        int height = getBounds().height()/5*2;
+    private void box(int x, int y, Paint paint, Canvas canvas) {
+        int width = this.getWidth();
+        int height = (int)(this.getHeight()*MAPREGION);
+        //Log.d("DRAW","map[0].length="+map[0].length+" map.length="+map.length);
         float xEdge = (float)width/map[0].length;
         float yEdge = (float)height/map.length;
         //x is 0 to rows-1
@@ -53,6 +77,7 @@ public class mapDraw extends Drawable {
 
     //"shift_line"
     //moves the lines from given line to the top line (rows)
+    /*
     public void shiftLines(int line, int[][] map) {
         //first update the map
         this.map = map;
@@ -67,32 +92,97 @@ public class mapDraw extends Drawable {
             }
         }
     }
+    */
 
-    public void drawBullet(int perc) {
-        int width = getBounds().width();
-        int height = getBounds().height()/5*2;
+    public int drawBullet(bullets bullet, Canvas canvas) {
+        int width = this.getWidth();
+        int height = this.getHeight();
+        int xCoor = (int)(bullet.getPerc()/100.0*width);
+        //update yCoor
+        if (bullet.getyCoor() < 0) {
+            //must set bullet yCoor
+            bullet.setyCoor(height-(int)(bulletVelocity*height));
+        }
+        else {
+            //bullet is already moving
+            canvas.drawCircle(xCoor, bullet.getyCoor(), 3, paint2);
+            bullet.setyCoor(bullet.getyCoor() - (int)(bulletVelocity*height));
+        }
+        //is it in the collision region?
+        if (bullet.getyCoor() < height*MAPREGION) {
+            if (bullet.getyCoor() < 0) {
+                //reached end of screen
+                return map.length;
+            }
+            int yRegion = 0;
+            while (bullet.getyCoor() > ((float)height*MAPREGION*(yRegion+1)/map.length)) {
+                yRegion++;
+            }
+            //yRegion = map.length - yRegion;
+            int curRegion = map[yRegion][bullet.getRegion()];
+            if (curRegion > 0) {
+                //there is a box, remove the box
+                map[yRegion][bullet.getRegion()] = 0;
+                //System.out.println("yRegion: "+yRegion);
+                return yRegion;
+            }
+        }
+        //if you didnt hit a box
+        canvas.drawCircle(xCoor, bullet.getyCoor(), 12, paint3);
+        return -1;
     }
 
     @Override
-    public void draw(Canvas canvas) {
+    public void onDraw(Canvas canvas) {
         // Get the drawable's bounds
-        this.canvas = canvas;
+        super.onDraw(canvas);
+        postInvalidate();
+        for (int n=0; n < bulletList.size(); n++) {
+            int tempLine = drawBullet(bulletList.get(n), canvas);
+            if ( tempLine >= 0) {
+                if (tempLine == map.length) {
+                    //collided with the wall
+                    collisionLine = -1;
+                }
+                else {
+                    //a box is destoryed
+                    collisionLine = tempLine;
+                }
+                collision = true;
+                bulletIndex = n;
+                bulletList.remove(n);
+                n--;
+            }
+        }
+        for (int i = 0; i < map.length; i++) {
+            for (int j = 0; j < map[0].length; j++) {
+                if (map[i][j] == 1) {
+                    if (i % 2 == 0) {
+                        //is even
+                        box(j, i, paint1, canvas);
+                    }
+                    else {
+                        box(j,i, paint2, canvas);
+                    }
+                }
+            }
+        }
     }
 
-    @Override
-    public void setAlpha(int alpha) {
-        // This method is required
+    public int getCollisionLine() {
+        return collisionLine;
     }
 
-    @Override
-    public void setColorFilter(ColorFilter colorFilter) {
-        // This method is required
+    public boolean getCollision() {
+        return collision;
     }
 
-    @Override
-    public int getOpacity() {
-        // Must be PixelFormat.UNKNOWN, TRANSLUCENT, TRANSPARENT, or OPAQUE
-        return PixelFormat.OPAQUE;
+    public int getBulletIndex() {
+        return bulletIndex;
+    }
+
+    public void setCollision(boolean bool) {
+        collision = bool;
     }
 }
 

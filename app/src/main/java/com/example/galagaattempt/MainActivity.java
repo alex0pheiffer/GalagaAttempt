@@ -2,6 +2,7 @@ package com.example.galagaattempt;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.app.ActionBar;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -9,6 +10,7 @@ import android.graphics.Canvas;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
@@ -18,7 +20,7 @@ import java.util.ArrayList;
 public class MainActivity extends AppCompatActivity {
 
     private final String ScoreText = "Score: ";
-    private final int lines = 5;
+    private int lines = 5;
     private final int rows = 12;
 
     private TextView timerTextView;
@@ -28,10 +30,9 @@ public class MainActivity extends AppCompatActivity {
     private int shipPerc;
     private boolean started;
     private boolean paused;
+    private int score;
 
-    private View shipView;
     private shipDraw ship;
-    private View mapView;
     private mapDraw map;
     private Button pauseBtn;
 
@@ -45,6 +46,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void run() {
             if (!paused) {
+                //Log.d("DEBUG","shipPerc : "+shipPerc);
                 long millis = System.currentTimeMillis() - startTime;
                 //int seconds = (int) (millis / 1000);
                 //int minutes = seconds / 60;
@@ -52,13 +54,16 @@ public class MainActivity extends AppCompatActivity {
                 count++;
                 if (count == 3) {
                     canShoot = true;
+                    count = 0;
                 }
                 moveBullet();
-                shipPerc =+ 2;
+                shipPerc = 5 + shipPerc;
                 if (shipPerc >= 100) {
                     shipPerc = -100;
                 }
                 moveShip();
+                //Log.d("DEBUG","runnable: "+givenMap);
+                map.updateLists(givenMap);
 
                 timerHandler.postDelayed(this, 250);
             }
@@ -69,23 +74,23 @@ public class MainActivity extends AppCompatActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        int actionBarTitle = Resources.getSystem().getIdentifier("action_bar_title", "id", "android");
-        TextView actionBarTitleView = (TextView) getWindow().findViewById(actionBarTitle);
-        actionBarTitleView.setText(ScoreText+0);
         createMap();
+        //Log.d("DEBUG","createMap: "+givenMap);
         started = false; paused = true;
-        shipView = findViewById(R.id.bottomCanvas);
-        mapView = findViewById(R.id.topCanvas);
+        ship = findViewById(R.id.bottomCanvas);
+
+        map = findViewById(R.id.topCanvas);
+        map.updateLists(givenMap);
         pauseBtn = findViewById(R.id.button);
         pauseBtn.setText("-");
-        ship = new shipDraw(shipPerc);
         shipPerc = 0;
-        shipView.setBackground(ship);
-        map = new mapDraw(givenMap);
+        canShoot = true;
+        bulletsList = new ArrayList<bullets>();
 
-        mapView.setOnClickListener(new View.OnClickListener() {
+         map.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 //game is paused
+                Log.d("PRESS","mapView is pressed");
                 if (paused) {
                     //game isn't started
                     if (!started) {
@@ -97,7 +102,17 @@ public class MainActivity extends AppCompatActivity {
                     //shooot!
                     if (canShoot) {
                         //we can shoot!
-
+                        //determine what region this bullet will hit
+                        int region = 0;
+                        while (((double)(region+1)/rows)*100 < Math.abs(shipPerc)) {
+                            region++;
+                        }
+                        //create a new bullet
+                        bullets bull = new bullets(shipPerc, region);
+                        bulletsList.add(bull);
+                        map.addBullet(bull);
+                        Log.d("DEBUG","created bulletsList: "+bulletsList.size());
+                        canShoot = false;
                     }
                 }
             }
@@ -106,24 +121,24 @@ public class MainActivity extends AppCompatActivity {
         pauseBtn.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
                 //unpause the game
+                Log.d("PRESS","pause btn is pressed");
                 if (started) {
                     Button b = (Button) view;
                     if (paused) {
                         b.setText("O");
                         timerHandler.postDelayed(timerRunnable, 0);
+                        paused = false;
                     }
                     //pause the game;
                     else {
                         b.setText("-");
                         startTime = System.currentTimeMillis();
                         timerHandler.removeCallbacks(timerRunnable);
+                        paused = true;
                     }
                 }
             }
         });
-
-        canShoot = true;
-        bulletsList = new ArrayList<bullets>();
         /*
 
         //timer ex code
@@ -154,6 +169,10 @@ public class MainActivity extends AppCompatActivity {
 
     public void start_game() {
         //start the timer
+        androidx.appcompat.app.ActionBar ab = getSupportActionBar();
+        score = 0;
+        ab.setTitle(ScoreText+score);
+        Log.d("DEBUG","start_game");
         startTime = System.currentTimeMillis();
         pauseBtn.setText("O");
         timerHandler.postDelayed(timerRunnable, 0);
@@ -164,20 +183,31 @@ public class MainActivity extends AppCompatActivity {
         paused = false;
     }
 
-    public void moveBullet() {
-        for (bullets b : bulletsList) {
 
+    public void moveBullet() {
+        //Log.d("DEBUG","moveBullet:collision: "+map.getCollision());
+        if (map.getCollision()) {
+            System.out.println("collision...");
+            if (map.getCollisionLine() != -1) {
+                checkLine(map.getCollisionLine());
+                score++;
+                androidx.appcompat.app.ActionBar ab = getSupportActionBar();
+                ab.setTitle(ScoreText+score);
+            }
+            map.setCollision(false);
+            bulletsList.remove(map.getBulletIndex());
         }
     }
 
     public void moveShip() {
+        //Log.d("DEBUG","moveShip");
         ship.updatePerc(shipPerc);
-        ship.drawShip();
+        ship.refreshDrawableState();
     }
 
     //lines is the number of lines you would like to create for the map. min is 1
     public void createMap() {
-        if (lines < 1) {
+        if (lines > 1) {
             givenMap = new int[lines][rows];
             for (int i=0; i < lines; i++) {
                 fillRow(i);
@@ -186,6 +216,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void fillRow(int line) {
+        //int[][] newMap = new int[lines][rows];
         for (int j=0; j < rows; j++) {
             if (Math.random()*10 > 4) {
                 givenMap[line][j] = 1;
@@ -195,6 +226,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public boolean checkLine(int line) {
+        //System.out.println("checking line: "+line);
         for (int i=0; i < rows; i++) {
             if (givenMap[line][i] > 0) {
                 return false;
@@ -202,14 +234,18 @@ public class MainActivity extends AppCompatActivity {
         }
         //they were all 0
         //move the blocks down
-        for (int i = line; i < lines-1; i++) {
+        //System.out.println("all are zero");
+        for (int i = lines-1; i > 0; i--) {
             for (int j = 0; j < rows; j++) {
-                givenMap[i][j] = givenMap[i+1][j];
+                givenMap[i][j] = givenMap[i-1][j];
             }
         }
+        System.out.println("shifted rows");
         //fill the last row
-        fillRow(rows-1);
-        map.shiftLines(line, givenMap);
+        fillRow(0);
+        //map.shiftLines(line, givenMap);
+        //Log.d("DEBUG","checkLine: "+givenMap);
+        map.updateLists(givenMap);
         return true;
     }
 
