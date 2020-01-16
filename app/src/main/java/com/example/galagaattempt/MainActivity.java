@@ -235,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
         //they were all 0
         //move the blocks down
         //System.out.println("all are zero");
-        for (int i = lines-1; i > 0; i--) {
+        for (int i = line; i > 0; i--) {
             for (int j = 0; j < rows; j++) {
                 givenMap[i][j] = givenMap[i-1][j];
             }
