@@ -14,10 +14,13 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
+    //yeah you need to change this in mapDraw too, sorry
+    private final double YCOORSTOTAL = 12;
 
     private final String ScoreText = "Score: ";
     private int lines = 5;
@@ -26,11 +29,13 @@ public class MainActivity extends AppCompatActivity {
     private TextView timerTextView;
     private long startTime = 0;
     private int count = 0;
+    private int needsMoveCount = 0;
     private boolean canShoot;
     private int shipPerc;
     private boolean started;
     private boolean paused;
     private int score;
+    private boolean lose = false;
 
     private shipDraw ship;
     private mapDraw map;
@@ -45,16 +50,26 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void run() {
-            if (!paused) {
+            if (!paused && !lose) {
                 //Log.d("DEBUG","shipPerc : "+shipPerc);
                 long millis = System.currentTimeMillis() - startTime;
                 //int seconds = (int) (millis / 1000);
                 //int minutes = seconds / 60;
                 //seconds = seconds % 60;
                 count++;
+                needsMoveCount++;
                 if (count == 3) {
                     canShoot = true;
                     count = 0;
+                }
+                if (needsMoveCount == 40) {
+                    lines++;
+                    if (lines > YCOORSTOTAL) {
+                        lose = true;
+                        hasLost();
+                    }
+                    shiftLines(lines-1);
+                    needsMoveCount=0;
                 }
                 moveBullet();
                 shipPerc = 5 + shipPerc;
@@ -66,6 +81,9 @@ public class MainActivity extends AppCompatActivity {
                 map.updateLists(givenMap);
 
                 timerHandler.postDelayed(this, 250);
+            }
+            else if(lose) {
+                hasLost();
             }
         }
     };
@@ -83,9 +101,7 @@ public class MainActivity extends AppCompatActivity {
         map.updateLists(givenMap);
         pauseBtn = findViewById(R.id.button);
         pauseBtn.setText("-");
-        shipPerc = 0;
-        canShoot = true;
-        bulletsList = new ArrayList<bullets>();
+        score = 0;
 
          map.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
@@ -94,7 +110,10 @@ public class MainActivity extends AppCompatActivity {
                 if (paused) {
                     //game isn't started
                     if (!started) {
-                        start_game();
+                        if (score != 0) {
+                            start_game(true);
+                        }
+                        else start_game(false);
                     }
                 }
                 //game is running
@@ -124,7 +143,9 @@ public class MainActivity extends AppCompatActivity {
                 Log.d("PRESS","pause btn is pressed");
                 if (started) {
                     Button b = (Button) view;
+                    Log.d("PRESS","is started");
                     if (paused) {
+                        Log.d("PRESS","unpausing");
                         b.setText("O");
                         timerHandler.postDelayed(timerRunnable, 0);
                         paused = false;
@@ -132,6 +153,7 @@ public class MainActivity extends AppCompatActivity {
                     //pause the game;
                     else {
                         b.setText("-");
+                        Log.d("PRESS","pausing");
                         startTime = System.currentTimeMillis();
                         timerHandler.removeCallbacks(timerRunnable);
                         paused = true;
@@ -166,11 +188,18 @@ public class MainActivity extends AppCompatActivity {
         */
     }
 
-
-    public void start_game() {
+    public void start_game(boolean restart) {
         //start the timer
+        if (restart) {
+            lines = 5;
+            createMap();
+            map.updateLists(givenMap);
+        }
         androidx.appcompat.app.ActionBar ab = getSupportActionBar();
         score = 0;
+        shipPerc = 0;
+        canShoot = true;
+        bulletsList = new ArrayList<bullets>();
         ab.setTitle(ScoreText+score);
         Log.d("DEBUG","start_game");
         startTime = System.currentTimeMillis();
@@ -181,6 +210,7 @@ public class MainActivity extends AppCompatActivity {
         //game is now started
         started = true;
         paused = false;
+        lose = false;
     }
 
 
@@ -232,21 +262,48 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
         }
+        Log.d("CHECKLINE","LINE: "+line+" / "+lines);
         //they were all 0
+        if (line != lines-1) {
+            //shift down
+            shiftLines(line);
+            needsMoveCount=0;
+        }
+        else lines--;
+        map.updateLists(givenMap);
+        return true;
+    }
+
+    //give the line we start at to shift (the one that is empty)
+    public void shiftLines(int line) {
         //move the blocks down
         //System.out.println("all are zero");
+        int[][] newMap = new int[lines][rows];
+
         for (int i = line; i > 0; i--) {
             for (int j = 0; j < rows; j++) {
-                givenMap[i][j] = givenMap[i-1][j];
+                newMap[i][j] = givenMap[i-1][j];
+            }
+        }
+        for (int i = line+1; i < lines; i++) {
+            for (int j = 0; j < rows; j++) {
+                newMap[i][j] = givenMap[i][j];
             }
         }
         System.out.println("shifted rows");
+        givenMap = newMap;
+        map.updateLists(givenMap);
         //fill the last row
         fillRow(0);
-        //map.shiftLines(line, givenMap);
-        //Log.d("DEBUG","checkLine: "+givenMap);
-        map.updateLists(givenMap);
-        return true;
+    }
+
+    public void hasLost() {
+        Log.d("FINISH","is finished");
+        timerHandler.removeCallbacks(timerRunnable);
+        startTime = System.currentTimeMillis();
+        Toast.makeText(getApplicationContext(),"You Lose : "+score, Toast.LENGTH_LONG);
+        paused = true;
+        started = false;
     }
 
     @Override

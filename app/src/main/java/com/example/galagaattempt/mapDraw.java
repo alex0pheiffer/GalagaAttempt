@@ -18,7 +18,7 @@ import java.util.ArrayList;
 
 public class mapDraw extends View {
 
-    private final double MAPREGION = 2/5.0;
+    private final double YCOORSTOTAL = 12;
     // % of height per 1/3 second
     private final double bulletVelocity = .005;
 
@@ -62,10 +62,10 @@ public class mapDraw extends View {
     //draws a box at the position in the map
     private void box(int x, int y, Paint paint, Canvas canvas) {
         int width = this.getWidth();
-        int height = (int)(this.getHeight()*MAPREGION);
+        int height = (int)(this.getHeight());
         //Log.d("DRAW","map[0].length="+map[0].length+" map.length="+map.length);
         float xEdge = (float)width/map[0].length;
-        float yEdge = (float)height/map.length;
+        float yEdge = (float)(height/YCOORSTOTAL);
         //x is 0 to rows-1
         //will give the left edge of the box
         float xCoor = (xEdge)*x;
@@ -108,14 +108,14 @@ public class mapDraw extends View {
             canvas.drawCircle(xCoor, bullet.getyCoor(), 3, paint2);
             bullet.setyCoor(bullet.getyCoor() - (int)(bulletVelocity*height));
         }
-        //is it in the collision region?
-        if (bullet.getyCoor() < height*MAPREGION) {
+        //is it in the collision region? ==should always be
+        if (bullet.getyCoor() < (float)height*map.length/YCOORSTOTAL) {
             if (bullet.getyCoor() < 0) {
                 //reached end of screen
                 return map.length;
             }
             int yRegion = 0;
-            while (bullet.getyCoor() > ((float)height*MAPREGION*(yRegion+1)/map.length)) {
+            while (bullet.getyCoor() > ((float)height*(yRegion+1)/YCOORSTOTAL)) {
                 yRegion++;
             }
             //yRegion = map.length - yRegion;
