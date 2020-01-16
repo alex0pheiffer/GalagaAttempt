@@ -19,7 +19,7 @@ public class shipDraw extends View {
     private Paint topPaint;
     private Paint backPaint;
     private int perc;
-    private Canvas canvas;
+    private int radius;
 
     public shipDraw(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -43,12 +43,16 @@ public class shipDraw extends View {
         //Log.d("DEBUG","drawShip");
         int width = this.getWidth();
         int height = this.getHeight();
-        int radius = height/2;
+        radius = height/2;
         //Log.d("DEBUG","drawRect");
         //canvas.drawRect(0,0,width,height,backPaint);
         int xDistance = (int)((Math.abs(perc)/100.0)*(width-(2*radius))+radius);
         //Log.d("DEBUG","drawCircle");
         canvas.drawCircle(xDistance,height/2,radius,topPaint);
+    }
+
+    public int getRadius() {
+        return radius;
     }
 
     @Override

@@ -24,7 +24,7 @@ public class MainActivity extends AppCompatActivity {
 
     private final String ScoreText = "Score: ";
     private int lines = 5;
-    private final int rows = 12;
+    private final int rows = 11;
 
     private TextView timerTextView;
     private long startTime = 0;
@@ -32,6 +32,7 @@ public class MainActivity extends AppCompatActivity {
     private int needsMoveCount = 0;
     private boolean canShoot;
     private int shipPerc;
+    private int blockedRows;
     private boolean started;
     private boolean paused;
     private int score;
@@ -58,11 +59,11 @@ public class MainActivity extends AppCompatActivity {
                 //seconds = seconds % 60;
                 count++;
                 needsMoveCount++;
-                if (count == 3) {
+                if (count == 5) {
                     canShoot = true;
                     count = 0;
                 }
-                if (needsMoveCount == 40) {
+                if (needsMoveCount == 45) {
                     lines++;
                     if (lines > YCOORSTOTAL) {
                         lose = true;
@@ -80,7 +81,7 @@ public class MainActivity extends AppCompatActivity {
                 //Log.d("DEBUG","runnable: "+givenMap);
                 map.updateLists(givenMap);
 
-                timerHandler.postDelayed(this, 250);
+                timerHandler.postDelayed(this, 200);
             }
             else if(lose) {
                 hasLost();
@@ -121,13 +122,8 @@ public class MainActivity extends AppCompatActivity {
                     //shooot!
                     if (canShoot) {
                         //we can shoot!
-                        //determine what region this bullet will hit
-                        int region = 0;
-                        while (((double)(region+1)/rows)*100 < Math.abs(shipPerc)) {
-                            region++;
-                        }
                         //create a new bullet
-                        bullets bull = new bullets(shipPerc, region);
+                        bullets bull = new bullets(shipPerc, rows);
                         bulletsList.add(bull);
                         map.addBullet(bull);
                         Log.d("DEBUG","created bulletsList: "+bulletsList.size());
@@ -195,6 +191,19 @@ public class MainActivity extends AppCompatActivity {
             createMap();
             map.updateLists(givenMap);
         }
+
+        map.giveRadius(ship.getRadius());
+
+        if (!restart) {
+            //block the rows if they're blocked by the radius. compare box width to radius. box width > .5*radius to be eligible
+            double boxWidth = (double) map.getWidth() / rows;
+            double radius = ship.getRadius();
+            int blockedRows = 0;
+            while (radius / boxWidth > .5) {
+                blockedRows++;
+                radius = radius - boxWidth;
+            }
+        }
         androidx.appcompat.app.ActionBar ab = getSupportActionBar();
         score = 0;
         shipPerc = 0;
@@ -248,7 +257,10 @@ public class MainActivity extends AppCompatActivity {
     public void fillRow(int line) {
         //int[][] newMap = new int[lines][rows];
         for (int j=0; j < rows; j++) {
-            if (Math.random()*10 > 4) {
+            if (j <= blockedRows || j >= rows-blockedRows-1) {
+                givenMap[line][j]=0;
+            }
+            else if (Math.random()*10 > 4) {
                 givenMap[line][j] = 1;
             }
             else givenMap[line][j] = 0;

@@ -20,13 +20,14 @@ public class mapDraw extends View {
 
     private final double YCOORSTOTAL = 12;
     // % of height per 1/3 second
-    private final double bulletVelocity = .005;
+    private final double bulletVelocity = .004;
 
     private final Paint paint1;
     private final Paint paint2;
     private final Paint paint3;
     private int[][] map;
     private ArrayList<bullets> bulletList;
+    private int shipRadius;
     private boolean collision;
     private int collisionLine;
     private int bulletIndex;
@@ -97,7 +98,29 @@ public class mapDraw extends View {
     public int drawBullet(bullets bullet, Canvas canvas) {
         int width = this.getWidth();
         int height = this.getHeight();
-        int xCoor = (int)(bullet.getPerc()/100.0*width);
+        int xCoor = (int)((Math.abs(bullet.getPerc())/100.0)*(width-(2*shipRadius))+shipRadius);
+        //determine what region this bullet will hit
+        int region = 0;
+        //the ship percent looks at radius --> width-radius
+        //what % of the first and last region is not able to be hit by the bullet? (radius/boxwidth)
+        //float unablePerc = shipRadius/( (float)width/map[0].length );
+        while (((double)(region+1)/(bullet.getRows()))*width < xCoor) {
+            if (((double)(region+1)/(bullet.getRows()))*width+10 > xCoor) {
+                //the bullet is basically on the border
+                if (bullet.getPerc() > 0) {
+                    //going to the right>>>
+                    xCoor -= 10;
+                    region--;
+                }
+                else if (bullet.getPerc() < 0) {
+                    //bullet is going to the left <<<
+                    xCoor += 10;
+                }
+            }
+            region++;
+        }
+        System.out.println(" reg: "+region);
+        bullet.setRegion(region);
         //update yCoor
         if (bullet.getyCoor() < 0) {
             //must set bullet yCoor
@@ -138,6 +161,7 @@ public class mapDraw extends View {
         super.onDraw(canvas);
         postInvalidate();
         for (int n=0; n < bulletList.size(); n++) {
+            System.out.print("bullet: "+n);
             int tempLine = drawBullet(bulletList.get(n), canvas);
             if ( tempLine >= 0) {
                 if (tempLine == map.length) {
@@ -175,6 +199,10 @@ public class mapDraw extends View {
 
     public boolean getCollision() {
         return collision;
+    }
+
+    public void giveRadius(int rad) {
+        shipRadius = rad;
     }
 
     public int getBulletIndex() {
